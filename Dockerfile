@@ -1,11 +1,13 @@
-FROM node:latest
+FROM ubuntu:14.04
 MAINTAINER ruiming <ruiming.zhuang@gmail.com>
 
-WORKDIR /app
-COPY . /app
-RUN yarn
+RUN apt-get update
+RUN apt-get install -y gcc g++ cmake 
+RUN apt-get install -y python python2.7-dev
+RUN apt-get install -y git software-properties-common
+RUN apt-get install -y libseccomp-dev
+RUN git clone https://github.com/QingdaoU/Judger.git
+RUN cd Judger && mkdir build && cd build && cmake .. && make && sudo make install
+RUN cd Judger/bindings/Python && sudo python setup.py install
 
-EXPOSE 8000
-
-ENTRYPOINT yarn start
-# ENTRYPOINT ./node_modules/.bin/tsc && node build/src/index.js
+RUN rm -rf /var/lib/apt/lists/*
