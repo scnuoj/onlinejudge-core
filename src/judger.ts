@@ -1,4 +1,6 @@
+import * as buffer from 'buffer'
 import * as Docker from 'dockerode'
+import * as Stream from 'stream'
 
 interface Limit {
   maxCpuTime: number,
@@ -18,6 +20,9 @@ export default class Judger {
   private readonly errorPath = '/root/error.txt'
   private readonly logPath = '/root/log.txt'
   private readonly script = '/root/main.py'
+  private stream: Stream
+
+  private data: string
 
   constructor () {
     this.docker = new Docker({
@@ -31,7 +36,7 @@ export default class Judger {
     } catch (e) {
       console.log(e)
     } finally {
-      setTimeout(this.destroyContainer.bind(this), submission.maxRealTime * 2)
+      this.destroyContainer()
     }
   }
 
@@ -65,10 +70,11 @@ export default class Judger {
       if (err) {
         reject(err)
       }
-      stream.setEncoding('utf8')
-      stream.pipe(process.stdout)
-      resolve()
+      stream.on('data', chunk => { this.data = (chunk as Buffer).toString('utf8', 8) })
+      stream.on('end', () => resolve(this.data))
+      stream.on('close', () => resolve(this.data))
     }))
+    console.log(this.data)
   }
 
   private async destroyContainer () {
@@ -86,7 +92,7 @@ export default class Judger {
   }
 
   private judging (limit: Limit) {
-    return `echo "${this.wrapData(limit)}" > ${this.script} && /usr/bin/python ${this.script}`
+    return `echo "${this.wrapData(limit)}" > ${this.script} && /usr/bin/python3 ${this.script}`
   }
 
   private wrapData (limit: Limit) {
