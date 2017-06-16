@@ -25,22 +25,24 @@ const db = Mysql.createConnection(mysqlConfig)
 new Promise((resolve: () => void, reject: (e: Error) => void) => {
   db.connect((e: Error) => e ? reject(e) : resolve())
 }).then(async () => {
-  // await mock()
+  // await mock(i)
   for ( ; ; ) {
     const message = await comsumer.brpop(['JUDGER'], 0)
     const submissionId = message[1]
     const submission = await getSubmissionById(submissionId)
-    const judger = new Judger(submission)
-    const result = await judger.process()
-    await producer.lpush('JUDGER_FINISH', JSON.stringify({
-      ...JSON.parse(result.replace(/'/g, '"')),
-      submissionId
-    }))
+    if (submission) {
+      const judger = new Judger(submission)
+      const result = await judger.process()
+      await producer.lpush('JUDGER_FINISH', JSON.stringify({
+        ...JSON.parse(result.replace(/'/g, '"')),
+        submissionId
+      }))
+    }
   }
 }).catch((e: Error) => console.log(e))
 
-const mock = async () => {
-  await comsumer.lpush('JUDGER', 1)
+const mock = async (i: number) => {
+  await comsumer.lpush('JUDGER', i)
 }
 
 const getSubmissionById = (submissionId: number): Promise<ISubmission> => {
