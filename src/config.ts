@@ -1,4 +1,24 @@
-export default {
+/**
+ * config
+ */
+export interface IRedisConfig {
+  host: string
+  port: number
+  password: string
+  db: number
+}
+export interface IMysqlConfig {
+  host: string
+  user: string
+  port: number
+  password: string
+  database: string
+}
+export interface IConfig {
+  redis: IRedisConfig
+  mysql: IMysqlConfig
+}
+export const config: IConfig = {
   redis: {
     host: process.env.RE_HOST || '127.0.0.1',
     port: process.env.RE_PORT || 5379,

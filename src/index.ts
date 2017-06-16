@@ -1,37 +1,40 @@
+/**
+ * index.ts
+ */
 import * as Docker from 'dockerode'
 import * as Redis from 'ioredis'
 import * as Mysql from 'mysql'
-import config from './config'
-import Judger from './judger'
+import { config } from 'src/config'
+import { ISubmission, Judger } from 'src/Judger'
 
-const RedisConfig = config.redis
-const MysqlConfig = config.mysql
+const redisConfig = config.redis
+const mysqlConfig = config.mysql
 
-const comsumer = new Redis(RedisConfig.port, RedisConfig.host, {
-  password: RedisConfig.password,
-  db: RedisConfig.db
+const comsumer = new Redis(redisConfig.port, redisConfig.host, {
+  password: redisConfig.password,
+  db: redisConfig.db
 })
 
-const producer = new Redis(RedisConfig.port, RedisConfig.host, {
-  password: RedisConfig.password,
-  db: RedisConfig.db
+const producer = new Redis(redisConfig.port, redisConfig.host, {
+  password: redisConfig.password,
+  db: redisConfig.db
 })
 
 const judger = new Judger()
 
-const db = Mysql.createConnection(MysqlConfig)
+const db = Mysql.createConnection(mysqlConfig)
 
-new Promise((resolve, reject) => {
-  db.connect(e => e ? reject(e) : resolve())
+new Promise((resolve: () => void, reject: (e: Error) => void) => {
+  db.connect((e: Error) => e ? reject(e) : resolve())
 }).then(async () => {
   await mock()
-  while (true) {
+  for ( ; ; ) {
     const message = await comsumer.brpop(['JUDGER'], 0)
     const { submissionId } = JSON.parse(message[1]).payload
     const submission = await getSubmissionById(submissionId)
     judger.process(submission)
   }
-}).catch(e => console.log(e))
+}).catch((e: Error) => console.log(e))
 
 const mock = async () => {
   await comsumer.lpush('JUDGER', JSON.stringify({
@@ -42,12 +45,16 @@ const mock = async () => {
   }))
 }
 
-const getSubmissionById = (submissionId: number) => new Promise((resolve, reject) => {
-  db.query(`SELECT * FROM Submission INNER JOIN Problem ON Submission.problemId = Problem.id WHERE Submission.id = ${submissionId}`, (err, results, fields) => {
-    if (err) {
-      reject(err)
-    } else {
-      resolve(results[0])
-    }
+const getSubmissionById = (submissionId: number): Promise<ISubmission> => {
+  return new Promise((resolve: (res: ISubmission) => void, reject: (err: Error) => void) => {
+    db.query(`SELECT * FROM Submission INNER JOIN Problem ON Submission.problemId = Problem.id WHERE Submission.id = ${submissionId}`,
+      (err: Error, results: ISubmission[]) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(results[0])
+        }
+      }
+    )
   })
-})
+}

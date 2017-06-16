@@ -1,25 +1,33 @@
+/**
+ * 判题 Judger
+ */
 import * as buffer from 'buffer'
 import * as Docker from 'dockerode'
 import * as Stream from 'stream'
 
-interface Limit {
-  maxCpuTime: number,
-  maxRealTime: number,
-  maxMemory: number,
-  maxProcessNumber: number,
+export interface ILimit {
+  maxCpuTime: number
+  maxRealTime: number
+  maxMemory: number
+  maxProcessNumber: number
   maxOutputSize: number
 }
 
-export default class Judger {
+export interface ISubmission extends ILimit {
+  code: string
+  inputData: string
+}
+
+export class Judger {
   private docker: Docker
   private container: Docker.Container
 
-  private readonly sourceCodePath = '/root/main.cc'
-  private readonly inputDataPath = '/root/main.in'
-  private readonly outputDataPath = '/root/main.out'
-  private readonly errorPath = '/root/error.txt'
-  private readonly logPath = '/root/log.txt'
-  private readonly script = '/root/main.py'
+  private readonly sourceCodePath: string = '/root/main.cc'
+  private readonly inputDataPath: string = '/root/main.in'
+  private readonly outputDataPath: string = '/root/main.out'
+  private readonly errorPath: string = '/root/error.txt'
+  private readonly logPath: string = '/root/log.txt'
+  private readonly script: string = '/root/main.py'
   private stream: Stream
 
   private data: string
@@ -30,7 +38,7 @@ export default class Judger {
     })
   }
 
-  public async process (submission) {
+  public async process (submission: ISubmission) : Promise<void> {
     try {
       await this.runCode(submission)
     } catch (e) {
@@ -40,7 +48,7 @@ export default class Judger {
     }
   }
 
-  private async runCode (submission) {
+  private async runCode (submission: ISubmission): Promise<void> {
     this.container = await this.docker.createContainer({
       Image: 'onlinejudge',
       AttachStdin: true,
@@ -52,50 +60,52 @@ export default class Judger {
       StdinOnce: false
     })
     await this.container.start()
-    const commands = ['bash', '-c',
+    const commands: string[] = ['bash', '-c',
       [this.writeCode(submission.code),
       this.writeInputData(submission.inputData),
-      this.judging(submission as Limit)].join(' && ')
+      this.judging(submission)].join(' && ')
     ]
-    const exec = await this.container.exec({
+    const exec: Docker.Exec = await this.container.exec({
       Cmd: commands,
       AttachStdin: true,
       AttachStdout: true,
       AttachStderr: true
-    }) as Docker.Exec
-    await new Promise((resolve, reject) => exec.start({
-      stdin: true,
-      hijack: true
-    }, (err, stream: NodeJS.ReadableStream) => {
-      if (err) {
-        reject(err)
-      }
-      stream.on('data', chunk => { this.data = (chunk as Buffer).toString('utf8', 8) })
-      stream.on('end', () => resolve(this.data))
-      stream.on('close', () => resolve(this.data))
-    }))
+    })
+    await new Promise((resolve: (data: string) => void, reject: (err: Error) => void): void => {
+      exec.start({
+        stdin: true,
+        hijack: true
+      }, (err: Error, stream: NodeJS.ReadableStream) => {
+        if (err) {
+          reject(err)
+        }
+        stream.on('data', (chunk: Buffer) => { this.data = chunk.toString('utf8', 8) })
+        stream.on('end', () => resolve(this.data))
+        stream.on('close', () => resolve(this.data))
+      })
+    })
     console.log(this.data)
   }
 
-  private async destroyContainer () {
+  private async destroyContainer (): Promise<void> {
     await this.container.stop()
     await this.container.remove()
     console.log('Container destroy success!')
   }
 
-  private writeCode (sourceCode: string) {
+  private writeCode (sourceCode: string): string {
     return `echo "${sourceCode}" > ${this.sourceCodePath}`
   }
 
-  private writeInputData (inputData: string) {
+  private writeInputData (inputData: string): string {
     return `echo "${inputData}" > ${this.inputDataPath}`
   }
 
-  private judging (limit: Limit) {
+  private judging (limit: ILimit): string {
     return `echo "${this.wrapData(limit)}" > ${this.script} && /usr/bin/python3 ${this.script}`
   }
 
-  private wrapData (limit: Limit) {
+  private wrapData (limit: ILimit): string {
     return `import _judger\nprint(_judger.run(
       max_cpu_time=${limit.maxCpuTime},
       max_real_time=${limit.maxRealTime},
