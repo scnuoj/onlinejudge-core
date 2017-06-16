@@ -20,29 +20,27 @@ const producer = new Redis(redisConfig.port, redisConfig.host, {
   db: redisConfig.db
 })
 
-const judger = new Judger()
-
 const db = Mysql.createConnection(mysqlConfig)
 
 new Promise((resolve: () => void, reject: (e: Error) => void) => {
   db.connect((e: Error) => e ? reject(e) : resolve())
 }).then(async () => {
-  await mock()
+  // await mock()
   for ( ; ; ) {
     const message = await comsumer.brpop(['JUDGER'], 0)
-    const { submissionId } = JSON.parse(message[1]).payload
+    const submissionId = message[1]
     const submission = await getSubmissionById(submissionId)
-    judger.process(submission)
+    const judger = new Judger(submission)
+    const result = await judger.process()
+    await producer.lpush('JUDGER_FINISH', JSON.stringify({
+      ...JSON.parse(result.replace(/'/g, '"')),
+      submissionId
+    }))
   }
 }).catch((e: Error) => console.log(e))
 
 const mock = async () => {
-  await comsumer.lpush('JUDGER', JSON.stringify({
-    event: 'JUDGE_SUBMISSION',
-    payload: {
-      submissionId: 1
-    }
-  }))
+  await comsumer.lpush('JUDGER', 1)
 }
 
 const getSubmissionById = (submissionId: number): Promise<ISubmission> => {

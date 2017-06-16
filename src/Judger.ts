@@ -18,6 +18,10 @@ export interface ISubmission extends ILimit {
   inputData: string
 }
 
+const docker = new Docker({
+  socketPath: '/var/run/docker.sock'
+})
+
 export class Judger {
   private docker: Docker
   private container: Docker.Container
@@ -29,26 +33,28 @@ export class Judger {
   private readonly logPath: string = '/root/log.txt'
   private readonly script: string = '/root/main.py'
   private stream: Stream
+  private submission: ISubmission
 
-  private data: string
-
-  constructor () {
-    this.docker = new Docker({
-      socketPath: '/var/run/docker.sock'
-    })
+  constructor (submission: ISubmission) {
+    this.docker = docker
+    this.submission = submission
   }
 
-  public async process (submission: ISubmission) : Promise<void> {
+  public async process () : Promise<string> {
+    let result: string
     try {
-      await this.runCode(submission)
+      result = await this.runCode()
     } catch (e) {
       console.log(e)
     } finally {
       this.destroyContainer()
     }
+
+    return result
   }
 
-  private async runCode (submission: ISubmission): Promise<void> {
+  private async runCode (): Promise<string> {
+    let result: string
     this.container = await this.docker.createContainer({
       Image: 'onlinejudge',
       AttachStdin: true,
@@ -61,9 +67,9 @@ export class Judger {
     })
     await this.container.start()
     const commands: string[] = ['bash', '-c',
-      [this.writeCode(submission.code),
-      this.writeInputData(submission.inputData),
-      this.judging(submission)].join(' && ')
+      [this.writeCode(this.submission.code),
+      this.writeInputData(this.submission.inputData),
+      this.judging(this.submission)].join(' && ')
     ]
     const exec: Docker.Exec = await this.container.exec({
       Cmd: commands,
@@ -79,16 +85,18 @@ export class Judger {
         if (err) {
           reject(err)
         }
-        stream.on('data', (chunk: Buffer) => { this.data = chunk.toString('utf8', 8) })
-        stream.on('end', () => resolve(this.data))
-        stream.on('close', () => resolve(this.data))
+        stream.on('data', (chunk: Buffer) => { result = chunk.toString('utf8', 8) })
+        stream.on('end', () => resolve(result))
+        stream.on('close', () => resolve(result))
       })
     })
-    console.log(this.data)
+
+    return result
   }
 
   private async destroyContainer (): Promise<void> {
     await this.container.stop()
+    console.log('Container stop success!')
     await this.container.remove()
     console.log('Container destroy success!')
   }
