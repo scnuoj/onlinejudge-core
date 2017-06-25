@@ -44,13 +44,7 @@ new Promise((resolve: () => void, reject: (e: Error) => void) => {
       console.log('编译出错', e)
       await producer.lpush('JUDGER_FINISH', JSON.stringify({
         submissionId,
-        exit_code: -1,
-        memory: -1,
-        result: 6,  // 编译错误
-        cpu_time: -1,
-        signal: -1,
-        real_time: -1,
-        error: -1
+        result: 6  // 编译错误
       }))
     })
 
