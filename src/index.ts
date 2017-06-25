@@ -29,8 +29,7 @@ new Promise((resolve: () => void, reject: (e: Error) => void) => {
   for ( ; ; ) {
     const message = await comsumer.brpop(['JUDGER'], 0)
     const submissionId = message[1]
-    console.log(submissionId)
-    getSubmissionById(submissionId).then(async submission => {
+    await getSubmissionById(submissionId).then(async submission => {
       if (submission) {
         const judger = new Judger(submission)
         const result = await judger.process()
@@ -41,15 +40,15 @@ new Promise((resolve: () => void, reject: (e: Error) => void) => {
         }))
       }
     }).catch(async e => {
-      console.log('编译出错', e)
+      console.log(e.message)
       await producer.lpush('JUDGER_FINISH', JSON.stringify({
         submissionId,
+        log: e && e.message,
         result: 6  // 编译错误
       }))
     })
-
   }
-}).catch((e: Error) => console.log(e))
+}).catch(e => console.log(e))
 
 const mock = async (i: number) => {
   await comsumer.lpush('JUDGER', i)

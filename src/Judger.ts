@@ -10,6 +10,7 @@ import * as Stream from 'stream'
 import * as util from 'util'
 
 const writeFileAsync = util.promisify(fs.writeFile)
+const readFileAsync = util.promisify(fs.readFile)
 const mkdirAsync = util.promisify(fs.mkdir)
 const repository = path.resolve(__dirname, '..', 'repository')
 
@@ -25,6 +26,7 @@ export interface ISubmission extends ILimit {
   id: number
   code: string
   inputData: string
+  outputData: string
 }
 
 const docker = new Docker({
@@ -46,7 +48,8 @@ export class Judger {
   private readonly innerWorkDir: string
   private readonly execFilePath: string
   private readonly execFileInputPath: string
-  private readonly outputDataPath: string
+  private readonly innerOutputDataPath: string
+  private readonly outerOutputDataPath: string
   private readonly errorPath: string
   private readonly logPath: string
   private readonly script: string = '/root/main.py' // 存 docker 即可
@@ -61,7 +64,8 @@ export class Judger {
     this.innerWorkDir = path.join('/root', this.timestamp)
     this.execFilePath = path.join(this.innerWorkDir, this.submission.id.toString())
     this.execFileInputPath = path.join(this.innerWorkDir, `${this.submission.id}.in`)
-    this.outputDataPath = path.join(this.innerWorkDir, 'main.out')
+    this.outerOutputDataPath = path.join(this.outerWorkDir, 'main.out')
+    this.innerOutputDataPath = path.join(this.innerWorkDir, 'main.out')
     this.errorPath = path.join(this.innerWorkDir, 'error.txt')
     this.logPath = path.join(this.innerWorkDir, 'log.txt')
   }
@@ -71,8 +75,9 @@ export class Judger {
     try {
       await mkdirAsync(this.outerWorkDir)
       result = await this.runCode()
+      await this.checkOutput()
     } catch (e) {
-      console.log(e)
+      throw e
     } finally {
       this.destroyContainer()
     }
@@ -123,6 +128,19 @@ export class Judger {
     })
 
     return result
+  }
+
+  private async checkOutput (): Promise<void> {
+    const output = (await readFileAsync(this.outerOutputDataPath, 'utf8')).trim().split('\n')
+    const correctOutput = this.submission.outputData.trim().split('\n')
+    if (output.length !== correctOutput.length) {
+      throw new Error('Output rows no match!')
+    }
+    for (let i = 0; i < output.length; i = i + 1 ) {
+      if (output[i] !== correctOutput[i]) {
+        throw new Error(`Result ${output[i]} no match ${correctOutput[i]}`)
+      }
+    }
   }
 
   /**
@@ -184,7 +202,7 @@ export class Judger {
       max_stack=33554432,
       exe_path='${this.execFilePath}',
       input_path='${this.execFileInputPath}',
-      output_path='${this.outputDataPath}',
+      output_path='${this.innerOutputDataPath}',
       error_path='${this.errorPath}',
       args=[],
       env=[],
