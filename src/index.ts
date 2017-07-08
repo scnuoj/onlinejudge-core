@@ -40,12 +40,19 @@ new Promise((resolve: () => void, reject: (e: Error) => void) => {
         }))
       }
     }).catch(async e => {
-      console.log(e.message)
-      await producer.lpush('JUDGER_FINISH', JSON.stringify({
-        submissionId,
-        log: e && e.message,
-        result: 6  // 编译错误
-      }))
+      if (e && /Output\srows|Result.+no\smatch/.test(e.message)) {
+        await producer.lpush('JUDGER_FINISH', JSON.stringify({
+          submissionId,
+          log: e && e.message,
+          result: 7  // 结果不对
+        }))
+      } else {
+        await producer.lpush('JUDGER_FINISH', JSON.stringify({
+          submissionId,
+          log: e && e.message,
+          result: 6  // 编译错误
+        }))
+      }
     })
   }
 }).catch(e => console.log(e))

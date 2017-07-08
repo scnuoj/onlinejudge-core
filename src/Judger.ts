@@ -134,7 +134,7 @@ export class Judger {
     const output = (await readFileAsync(this.outerOutputDataPath, 'utf8')).trim().split('\n')
     const correctOutput = this.submission.outputData.trim().split('\n')
     if (output.length !== correctOutput.length) {
-      throw new Error('Output rows no match!')
+      throw new Error('Output rows count no match!')
     }
     for (let i = 0; i < output.length; i = i + 1 ) {
       if (output[i] !== correctOutput[i]) {
