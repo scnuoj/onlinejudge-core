@@ -25,6 +25,7 @@ const db = Mysql.createConnection(mysqlConfig)
 new Promise((resolve: () => void, reject: (e: Error) => void) => {
   db.connect((e: Error) => e ? reject(e) : resolve())
 }).then(async () => {
+  console.log('connect')
   // await mock(i)
   for ( ; ; ) {
     const message = await comsumer.brpop(['JUDGER'], 0)
