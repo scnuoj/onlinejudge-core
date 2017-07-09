@@ -5,3 +5,5 @@
 /typings/
 /build/
 /.idea/
+repository/*
+!repository/.gitkeep

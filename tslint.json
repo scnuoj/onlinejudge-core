@@ -24,7 +24,6 @@
         // 强制要求声明 type
         "typedef": [
             true,
-            "arrow-parameter",
             "call-signature",
             "member-variable-declaration",
             "parameter",
@@ -52,7 +51,8 @@
         ],
         "member-access": [
             false
-        ]
+        ],
+        "no-suspicious-comment": false
     },
     "rulesDirectory": []
 }
